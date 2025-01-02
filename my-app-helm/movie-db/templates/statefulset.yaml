@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: movie-db-statefulset
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  serviceName: {{ .Chart.Name }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+    spec:
+      volumes:
+        - name: {{ .Values.db.name }}-movie-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.db.name }}-pvc
+      containers:
+        - name: {{ .Values.db.name }}
+          image: {{ .Values.db.image }}
+          ports:
+          - containerPort: {{ .Values.db.port }}
+            name: {{ .Values.db.name }}
+          envFrom:
+          - secretRef:
+              name: {{ .Values.db.name }}-secret
+          volumeMounts:
+          - mountPath: "/var/lib/postgresql/data/"
+            name: {{ .Values.db.name }}-movie-storage

@@ -1,0 +1,9 @@
+db:
+  image: postgres:12.1-alpine
+  user: Y2FzdF9kYl91c2VybmFtZQo=
+  password: Y2FzdF9kYl9wYXNzd29yZAo=
+  name: Y2FzdF9kYl9kZXYK
+
+service:
+  type: ClusterIP
+  port: 5432

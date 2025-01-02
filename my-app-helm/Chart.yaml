@@ -1,7 +1,0 @@
-
-apiVersion: v2
-name: my-app-helm
-description: Helm chart for deploying movie-service, cast-service, databases, and NGINX.
-type: application
-version: 1.0.0
-appVersion: 1.0.0

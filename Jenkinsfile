@@ -106,13 +106,12 @@ pipeline {
                         mkdir .kube
                         cat $KUBECONFIG > .kube/config
                         kubectl get namespace dev || kubectl create namespace dev
-                        helm upgrade --install app ./my-app-helm/ \
-                            --values=./my-app-helm/values-dev.yaml \
-                            --namespace=dev \
-                            --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
-                            --set movieService.tag=$DOCKER_TAG \
-                            --set castService.image=$DOCKER_ID/$CAST_IMAGE \
-                            --set castService.tag=$DOCKER_TAG
+                        helm -n dev upgrade --install movie-db --values my-app-helm/movie-db-helm/values.yaml movie-db-helm/
+                        helm -n dev upgrade --install cast-db --values my-app-helm/cast-db-helm/values.yaml cast-db-helm/
+                        helm -n dev upgrade --install movie-service --values my-app-helm/movie-helm/values.yaml --set image.repository=$DOCKER_ID/$DOCKER_MOVIE_IMAGE --set image.tag=$DOCKER_TAG movie-helm/
+                        helm -n dev upgrade --install cast-service --values my-app-helm/cast-helm/values.yaml --set image.repository=$DOCKER_ID/$DOCKER_CAST_IMAGE --set image.tag=$DOCKER_TAG cast-helm/
+                        helm -n dev upgrade --install nginx-service --values my-app-helm/nginx-helm/values.yaml nginx-helm/
+
                     '''
                 }
             }
@@ -125,13 +124,12 @@ pipeline {
                         mkdir .kube
                         cat $KUBECONFIG > .kube/config
                         kubectl get namespace qa || kubectl create namespace qa
-                        helm upgrade --install app ./my-app-helm/ \
-                            --values=./my-app-helm/values-qa.yaml \
-                            --namespace=qa \
-                            --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
-                            --set movieService.tag=$DOCKER_TAG \
-                            --set castService.image=$DOCKER_ID/$CAST_IMAGE \
-                            --set castService.tag=$DOCKER_TAG
+                        helm -n qa upgrade --install movie-db --values my-app-helm/movie-db-helm/values.yaml movie-db-helm/
+                        helm -n qa upgrade --install cast-db --values my-app-helm/cast-db-helm/values.yaml cast-db-helm/
+                        helm -n qa upgrade --install movie-service --values my-app-helm/movie-helm/values.yaml --set image.repository=$DOCKER_ID/$DOCKER_MOVIE_IMAGE --set image.tag=$DOCKER_TAG movie-helm/
+                        helm -n qa upgrade --install cast-service --values my-app-helm/cast-helm/values.yaml --set image.repository=$DOCKER_ID/$DOCKER_CAST_IMAGE --set image.tag=$DOCKER_TAG cast-helm/
+                        helm -n qa upgrade --install nginx-service --values my-app-helm/nginx-helm/values.yaml nginx-helm/
+
                     '''
                 }
             }
@@ -144,13 +142,12 @@ pipeline {
                         mkdir .kube
                         cat $KUBECONFIG > .kube/config
                         kubectl get namespace staging || kubectl create namespace staging
-                        helm upgrade --install app ./my-app-helm/ \
-                            --values=./my-app-helm/values-staging.yaml \
-                            --namespace=staging \
-                            --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
-                            --set movieService.tag=$DOCKER_TAG \
-                            --set castService.image=$DOCKER_ID/$CAST_IMAGE \
-                            --set castService.tag=$DOCKER_TAG
+                        helm -n staging upgrade --install movie-db --values my-app-helm/movie-db-helm/values.yaml movie-db-helm/
+                        helm -n staging upgrade --install cast-db --values my-app-helm/cast-db-helm/values.yaml cast-db-helm/
+                        helm -n staging upgrade --install movie-service --values my-app-helm/movie-helm/values.yaml --set image.repository=$DOCKER_ID/$DOCKER_MOVIE_IMAGE --set image.tag=$DOCKER_TAG movie-helm/
+                        helm -n staging upgrade --install cast-service --values my-app-helm/cast-helm/values.yaml --set image.repository=$DOCKER_ID/$DOCKER_CAST_IMAGE --set image.tag=$DOCKER_TAG cast-helm/
+                        helm -n staging upgrade --install nginx-service --values my-app-helm/nginx-helm/values.yaml nginx-helm/
+
                     '''
                 }
             }
@@ -166,13 +163,12 @@ pipeline {
                         mkdir .kube
                         cat $KUBECONFIG > .kube/config
                         kubectl get namespace prod || kubectl create namespace prod
-                        helm upgrade --install app ./my-app-helm/ \
-                            --values=./my-app-helm/values-prod.yaml \
-                            --namespace=prod \
-                            --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
-                            --set movieService.tag=$DOCKER_TAG \
-                            --set castService.image=$DOCKER_ID/$CAST_IMAGE \
-                            --set castService.tag=$DOCKER_TAG
+                        helm -n prod upgrade --install movie-db --values my-app-helm/movie-db-helm/values.yaml movie-db-helm/
+                        helm -n prod upgrade --install cast-db --values my-app-helm/cast-db-helm/values.yaml cast-db-helm/
+                        helm -n prod upgrade --install movie-service --values my-app-helm/movie-helm/values.yaml --set image.repository=$DOCKER_ID/$DOCKER_MOVIE_IMAGE --set image.tag=$DOCKER_TAG movie-helm/
+                        helm -n prod upgrade --install cast-service --values my-app-helm/cast-helm/values.yaml --set image.repository=$DOCKER_ID/$DOCKER_CAST_IMAGE --set image.tag=$DOCKER_TAG cast-helm/
+                        helm -n prod upgrade --install nginx-service --values my-app-helm/nginx-helm/values.yaml nginx-helm/
+
                     '''
                 }
             }
