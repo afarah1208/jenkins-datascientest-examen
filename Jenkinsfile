@@ -103,7 +103,7 @@ pipeline {
                 axes {
                     axis {
                         name: 'ENVIRONMENT'
-                        values: 'dev', 'qa', 'staging', 'prod'
+                        values: ['dev', 'qa', 'staging', 'prod']
                     }
                 }
                 environment {
