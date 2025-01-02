@@ -1,94 +1,93 @@
 pipeline {
     environment { 
         DOCKER_ID = "afarah1208"
+        DOCKER_TAG = "v.${BUILD_ID}.0"
+        DOCKER_PASS = credentials("DOCKER_HUB_PASS")
         MOVIE_IMAGE = "movie-service"
         CAST_IMAGE = "cast-service"
-        DOCKER_TAG = "v.${BUILD_ID}.0"
+        KUBECONFIG = credentials("config")
     }
     agent any 
     stages {
-        stage('Docker Build - Movie Service') { 
+        stage('Clean Environment') {
             steps {
                 script {
                     sh '''
-                        docker rm -f movie-service || true
-                        docker build -t $DOCKER_ID/$MOVIE_IMAGE:$DOCKER_TAG movie-service/.
+                        for service in movie-service cast-service cast-db movie-db nginx-service; do
+                            if docker ps -a | grep -q $service; then
+                                docker stop $service
+                                docker rm -f $service
+                            fi
+                        done
+                    '''
+                }
+            }
+        }
+        stage('Docker Build') { 
+            steps {
+                script {
+                    sh '''
+                        docker build -t $DOCKER_ID/$MOVIE_IMAGE:$DOCKER_TAG ./movie-service
+                        docker build -t $DOCKER_ID/$CAST_IMAGE:$DOCKER_TAG ./cast-service
                         sleep 6
                     '''
                 }
             }
         }
-        stage('Docker Build - Cast Service') { 
+        stage('Docker Run - Services') {
             steps {
                 script {
                     sh '''
-                        docker rm -f cast-service || true
-                        docker build -t $DOCKER_ID/$CAST_IMAGE:$DOCKER_TAG cast-service/.
-                        sleep 6
-                    '''
-                }
-            }
-        }
-        stage('Docker Run - Movie Service') { 
-            steps {
-                script {
-                    sh '''
-                        docker run -d \
-                            -e DB_HOST=localhost \
-                            -e DB_NAME=movies_test \
-                            -e DB_USER=test_user \
-                            -e DB_PASSWORD=test_password \
-                            -p 8001:8001 \
-                            --name movie-service \
-                            $DOCKER_ID/$MOVIE_IMAGE:$DOCKER_TAG
-                        sleep 10
-                    '''
-                }
-            }
-        }
-        stage('Test Acceptance - Movie Service') { 
-            steps {
-                script {
-                    sh '''
-                        curl -f http://localhost:8001/health || echo "Health check failed for movie-service"
-                        docker stop movie-service
-                        docker rm movie-service
-                    '''
-                }
-            }
-        }
-        stage('Docker Run - Cast Service') { 
-            steps {
-                script {
-                    sh '''
-                        docker run -d \
-                            -e DB_HOST=localhost \
-                            -e DB_NAME=casts_test \
-                            -e DB_USER=test_user \
-                            -e DB_PASSWORD=test_password \
-                            -p 8002:8002 \
-                            --name cast-service \
+                        # Run Cast DB
+                        docker run -d --name cast-db \
+                            -v postgres_data_cast:/var/lib/postgresql/data/ \
+                            -e POSTGRES_USER=cast_db_user \
+                            -e POSTGRES_PASSWORD=cast_db_password \
+                            -e POSTGRES_DB=cast_db \
+                            postgres:12.1-alpine
+                        
+                        # Run Movie DB
+                        docker run -d --name movie-db \
+                            -v postgres_data_movie:/var/lib/postgresql/data/ \
+                            -e POSTGRES_USER=movie_db_user \
+                            -e POSTGRES_PASSWORD=movie_db_password \
+                            -e POSTGRES_DB=movie_db \
+                            postgres:12.1-alpine
+                        
+                        # Run Cast Service
+                        docker run -d --name cast-service \
+                            -p 8002:8000 \
+                            -e DATABASE_URI=postgresql://cast_db_user:cast_db_password@cast-db:5432/cast_db \
                             $DOCKER_ID/$CAST_IMAGE:$DOCKER_TAG
+                        
+                        # Run Movie Service
+                        docker run -d --name movie-service \
+                            -p 8001:8000 \
+                            -e DATABASE_URI=postgresql://movie_db_user:movie_db_password@movie-db:5432/movie_db \
+                            -e CAST_SERVICE_HOST_URL=http://cast-service:8000/api/v1/casts/ \
+                            $DOCKER_ID/$MOVIE_IMAGE:$DOCKER_TAG
+                        
+                        # Run NGINX
+                        docker run -d --name nginx-service \
+                            -p 80:8080 \
+                            -v ./nginx_config.conf:/etc/nginx/conf.d/default.conf \
+                            nginx:1.17.6-alpine
                         sleep 10
                     '''
                 }
             }
         }
-        stage('Test Acceptance - Cast Service') { 
+        stage('Test Acceptance') {
             steps {
                 script {
                     sh '''
-                        curl -f http://localhost:8002/health || echo "Health check failed for cast-service"
-                        docker stop cast-service
-                        docker rm cast-service
+                        curl -f http://localhost:8001/health || echo "Movie Service health check failed"
+                        curl -f http://localhost:8002/health || echo "Cast Service health check failed"
                     '''
                 }
             }
         }
         stage('Docker Push') { 
-            environment {
-                DOCKER_PASS = credentials("DOCKER_HUB_PASS")
-            }
             steps {
                 script {
                     sh '''
@@ -99,78 +98,55 @@ pipeline {
                 }
             }
         }
-        stage('Deploy to Dev') {
-            environment {
-                KUBECONFIG = credentials("config")
-                VALUES_FILE = "values-dev.yaml"
-            }
-            steps {
-                script {
-                    sh '''
-                        rm -Rf .kube
-                        mkdir .kube
-                        cat $KUBECONFIG > .kube/config
-                        kubectl get namespace dev || kubectl create namespace dev
-                        sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" my-app-helm/${VALUES_FILE}
-                        helm upgrade --install my-app ./my-app-helm --values=${VALUES_FILE} --namespace dev
-                    '''
+        stage('Deploy to Environments') {
+            matrix {
+                axes {
+                    axis {
+                        name: 'ENVIRONMENT'
+                        values: 'dev', 'qa', 'staging', 'prod'
+                    }
                 }
-            }
-        }
-        stage('Deploy to QA') {
-            environment {
-                KUBECONFIG = credentials("config")
-                VALUES_FILE = "values-qa.yaml"
-            }
-            steps {
-                script {
-                    sh '''
-                        rm -Rf .kube
-                        mkdir .kube
-                        cat $KUBECONFIG > .kube/config
-                        kubectl get namespace qa || kubectl create namespace qa
-                        sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" ${VALUES_FILE}
-                        helm upgrade --install my-app ./my-app-helm --values=${VALUES_FILE} --namespace qa
-                    '''
+                environment {
+                    VALUES_FILE = "values-${ENVIRONMENT}.yaml"
                 }
-            }
-        }
-        stage('Deploy to Staging') {
-            environment {
-                KUBECONFIG = credentials("config")
-                VALUES_FILE = "values-staging.yaml"
-            }
-            steps {
-                script {
-                    sh '''
-                        rm -Rf .kube
-                        mkdir .kube
-                        cat $KUBECONFIG > .kube/config
-                        kubectl get namespace staging || kubectl create namespace staging
-                        sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" ${VALUES_FILE}
-                        helm upgrade --install my-app ./my-app-helm --values=${VALUES_FILE} --namespace staging
-                    '''
-                }
-            }
-        }
-        stage('Deploy to Prod') {
-            environment {
-                KUBECONFIG = credentials("config")
-                VALUES_FILE = "values-prod.yaml"
-            }
-            steps {
-                timeout(time: 15, unit: "MINUTES") {
-                    input message: 'Do you want to deploy in production?', ok: 'Yes'
-                }
-                script {
-                    sh '''
-                        rm -Rf .kube
-                        mkdir .kube
-                        cat $KUBECONFIG > .kube/config
-                        kubectl get namespace prod || kubectl create namespace prod
-                        sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" ${VALUES_FILE}
-                        helm upgrade --install my-app ./my-app-helm --values=${VALUES_FILE} --namespace prod
-                    '''
+                stages {
+                    stage('Setup Environment') {
+                        steps {
+                            script {
+                                sh '''
+                                    rm -Rf .kube
+                                    mkdir .kube
+                                    cat $KUBECONFIG > .kube/config
+                                    kubectl get namespace ${ENVIRONMENT} || kubectl create namespace ${ENVIRONMENT}
+                                '''
+                            }
+                        }
+                    }
+                    stage('Helm Deployment') {
+                        steps {
+                            script {
+                                sh '''
+                                    helm upgrade --install my-app ./my-app-helm/ \
+                                        --values=./my-app-helm/${VALUES_FILE} \
+                                        --namespace=${ENVIRONMENT} \
+                                        --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
+                                        --set movieService.tag=$DOCKER_TAG \
+                                        --set castService.image=$DOCKER_ID/$CAST_IMAGE \
+                                        --set castService.tag=$DOCKER_TAG
+                                '''
+                            }
+                        }
+                    }
+                    stage('Validate Deployment (Prod Only)') {
+                        when {
+                            equals expected: 'prod', actual: "${ENVIRONMENT}"
+                        }
+                        steps {
+                            timeout(time: 15, unit: "MINUTES") {
+                                input message: 'Do you want to deploy in production?', ok: 'Yes'
+                            }
+                        }
+                    }
                 }
             }
         }
