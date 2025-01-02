@@ -98,55 +98,82 @@ pipeline {
                 }
             }
         }
-        stage('Deploy to Environments') {
-            matrix {
-                axes {
-                    axis {
-                        name: 'ENVIRONMENT'
-                        values: ['dev', 'qa', 'staging', 'prod']
-                    }
+        stage('Deploy to Dev') {
+            steps {
+                script {
+                    sh '''
+                        rm -Rf .kube
+                        mkdir .kube
+                        cat $KUBECONFIG > .kube/config
+                        kubectl get namespace dev || kubectl create namespace dev
+                        helm upgrade --install my-app ./my-app-helm/ \
+                            --values=./my-app-helm/values-dev.yaml \
+                            --namespace=dev \
+                            --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
+                            --set movieService.tag=$DOCKER_TAG \
+                            --set castService.image=$DOCKER_ID/$CAST_IMAGE \
+                            --set castService.tag=$DOCKER_TAG
+                    '''
                 }
-                environment {
-                    VALUES_FILE = "values-${ENVIRONMENT}.yaml"
+            }
+        }
+        stage('Deploy to QA') {
+            steps {
+                script {
+                    sh '''
+                        rm -Rf .kube
+                        mkdir .kube
+                        cat $KUBECONFIG > .kube/config
+                        kubectl get namespace qa || kubectl create namespace qa
+                        helm upgrade --install my-app ./my-app-helm/ \
+                            --values=./my-app-helm/values-qa.yaml \
+                            --namespace=qa \
+                            --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
+                            --set movieService.tag=$DOCKER_TAG \
+                            --set castService.image=$DOCKER_ID/$CAST_IMAGE \
+                            --set castService.tag=$DOCKER_TAG
+                    '''
                 }
-                stages {
-                    stage('Setup Environment') {
-                        steps {
-                            script {
-                                sh '''
-                                    rm -Rf .kube
-                                    mkdir .kube
-                                    cat $KUBECONFIG > .kube/config
-                                    kubectl get namespace ${ENVIRONMENT} || kubectl create namespace ${ENVIRONMENT}
-                                '''
-                            }
-                        }
-                    }
-                    stage('Helm Deployment') {
-                        steps {
-                            script {
-                                sh '''
-                                    helm upgrade --install my-app ./my-app-helm/ \
-                                        --values=./my-app-helm/${VALUES_FILE} \
-                                        --namespace=${ENVIRONMENT} \
-                                        --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
-                                        --set movieService.tag=$DOCKER_TAG \
-                                        --set castService.image=$DOCKER_ID/$CAST_IMAGE \
-                                        --set castService.tag=$DOCKER_TAG
-                                '''
-                            }
-                        }
-                    }
-                    stage('Validate Deployment (Prod Only)') {
-                        when {
-                            equals expected: 'prod', actual: "${ENVIRONMENT}"
-                        }
-                        steps {
-                            timeout(time: 15, unit: "MINUTES") {
-                                input message: 'Do you want to deploy in production?', ok: 'Yes'
-                            }
-                        }
-                    }
+            }
+        }
+        stage('Deploy to Staging') {
+            steps {
+                script {
+                    sh '''
+                        rm -Rf .kube
+                        mkdir .kube
+                        cat $KUBECONFIG > .kube/config
+                        kubectl get namespace staging || kubectl create namespace staging
+                        helm upgrade --install my-app ./my-app-helm/ \
+                            --values=./my-app-helm/values-staging.yaml \
+                            --namespace=staging \
+                            --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
+                            --set movieService.tag=$DOCKER_TAG \
+                            --set castService.image=$DOCKER_ID/$CAST_IMAGE \
+                            --set castService.tag=$DOCKER_TAG
+                    '''
+                }
+            }
+        }
+        stage('Deploy to Prod') {
+            steps {
+                timeout(time: 15, unit: "MINUTES") {
+                    input message: 'Do you want to deploy in production?', ok: 'Yes'
+                }
+                script {
+                    sh '''
+                        rm -Rf .kube
+                        mkdir .kube
+                        cat $KUBECONFIG > .kube/config
+                        kubectl get namespace prod || kubectl create namespace prod
+                        helm upgrade --install my-app ./my-app-helm/ \
+                            --values=./my-app-helm/values-prod.yaml \
+                            --namespace=prod \
+                            --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
+                            --set movieService.tag=$DOCKER_TAG \
+                            --set castService.image=$DOCKER_ID/$CAST_IMAGE \
+                            --set castService.tag=$DOCKER_TAG
+                    '''
                 }
             }
         }
