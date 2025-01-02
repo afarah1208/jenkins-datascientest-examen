@@ -111,7 +111,7 @@ pipeline {
                         mkdir .kube
                         cat $KUBECONFIG > .kube/config
                         kubectl get namespace dev || kubectl create namespace dev
-                        sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" ${VALUES_FILE}
+                        sed -i "s+tag.*+tag: ${DOCKER_TAG}+g" my-app-helm/${VALUES_FILE}
                         helm upgrade --install my-app ./my-app-helm --values=${VALUES_FILE} --namespace dev
                     '''
                 }
