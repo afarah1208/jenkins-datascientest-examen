@@ -1,0 +1,24 @@
+
+namespace: prod
+
+movieService:
+  image: afarah1208/movie-service
+  replicas: 5
+  port: 8001
+
+castService:
+  image: afarah1208/cast-service
+  replicas: 5
+  port: 8002
+
+movieDb:
+  image: postgres:13
+  storageSize: 20Gi
+
+castDb:
+  image: postgres:13
+  storageSize: 20Gi
+
+nginx:
+  replicas: 3
+  domain: jenkins.examen.cours-datascientest-aya.cloudns.ch
