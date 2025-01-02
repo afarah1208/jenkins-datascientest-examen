@@ -106,7 +106,7 @@ pipeline {
                         mkdir .kube
                         cat $KUBECONFIG > .kube/config
                         kubectl get namespace dev || kubectl create namespace dev
-                        helm upgrade --install my-app ./my-app-helm/ \
+                        helm upgrade --install app ./my-app-helm/ \
                             --values=./my-app-helm/values-dev.yaml \
                             --namespace=dev \
                             --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
@@ -125,7 +125,7 @@ pipeline {
                         mkdir .kube
                         cat $KUBECONFIG > .kube/config
                         kubectl get namespace qa || kubectl create namespace qa
-                        helm upgrade --install my-app ./my-app-helm/ \
+                        helm upgrade --install app ./my-app-helm/ \
                             --values=./my-app-helm/values-qa.yaml \
                             --namespace=qa \
                             --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
@@ -144,7 +144,7 @@ pipeline {
                         mkdir .kube
                         cat $KUBECONFIG > .kube/config
                         kubectl get namespace staging || kubectl create namespace staging
-                        helm upgrade --install my-app ./my-app-helm/ \
+                        helm upgrade --install app ./my-app-helm/ \
                             --values=./my-app-helm/values-staging.yaml \
                             --namespace=staging \
                             --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
@@ -166,7 +166,7 @@ pipeline {
                         mkdir .kube
                         cat $KUBECONFIG > .kube/config
                         kubectl get namespace prod || kubectl create namespace prod
-                        helm upgrade --install my-app ./my-app-helm/ \
+                        helm upgrade --install app ./my-app-helm/ \
                             --values=./my-app-helm/values-prod.yaml \
                             --namespace=prod \
                             --set movieService.image=$DOCKER_ID/$MOVIE_IMAGE \
